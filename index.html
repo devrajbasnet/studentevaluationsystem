@@ -234,33 +234,41 @@ a{color:inherit;}
 
 /* report card */
 .report{background:var(--paper-raised); border:1px solid var(--rule); border-radius:18px; padding:42px; position:relative; overflow:hidden;}
-.report-top{text-align:center; border-bottom:2.5px solid var(--green); padding-bottom:22px; margin-bottom:28px; position:relative;}
-.report-top .glabel{font-size:0.74rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); font-weight:600;}
-.report-top h2{font-size:1.7rem; margin:6px 0 4px;}
-.report-top .who{font-size:1.05rem; font-weight:700;}
-.report-top .meta{color:var(--ink-soft); font-size:0.88rem; margin-top:4px;}
+.report-top{
+  text-align:center; padding:28px 24px 24px; margin-bottom:28px; position:relative;
+  background:linear-gradient(135deg, #0F4C3A 0%, #1a6b52 60%, #2D5C8A 100%);
+  border-radius:14px; margin:-10px -10px 28px;
+}
+.report-top .glabel{font-size:0.78rem; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.75); font-weight:600;}
+.report-top h2{font-size:1.7rem; margin:6px 0 4px; color:#fff;}
+.report-top .who{font-size:1.12rem; font-weight:700; color:#fff;}
+.report-top .meta{color:rgba(255,255,255,0.75); font-size:0.88rem; margin-top:4px;}
 .report-sub{margin-bottom:26px;}
 .report-sub h5{font-family:'Fraunces',serif; color:var(--green); font-weight:700; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid var(--rule); display:flex; justify-content:space-between; align-items:baseline; font-size:1.04rem;}
 .report-sub h5 .term-tag{font-size:0.74rem; color:var(--ink-soft); font-weight:500; text-transform:none;}
 
 /* marksheet grid */
-.mk-table{width:100%; border-collapse:collapse; margin-bottom:22px; border:1.5px solid var(--ink);}
+.mk-table{width:100%; border-collapse:collapse; margin-bottom:22px; border:2px solid #0F4C3A;}
 .mk-table thead th{
-  background:var(--green); color:#fff; padding:10px 12px; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em;
-  font-weight:700; text-align:left; border:1px solid var(--green-dim);
+  background:linear-gradient(90deg,#0F4C3A,#1a6b52); color:#fff; padding:11px 12px;
+  font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em;
+  font-weight:700; text-align:left; border:1px solid #0a3a2c;
 }
-.mk-table tbody td{padding:9px 12px; border:1px solid var(--rule); font-size:0.92rem; vertical-align:middle;}
+.mk-table tbody td{padding:9px 12px; border:1px solid #d0e8e0; font-size:0.92rem; vertical-align:middle;}
+.mk-table tbody tr:nth-child(even) td{background:#f0f9f5;}
 .marksheet .mk-subject-row td{
-  background:rgba(15,76,58,0.07); font-family:'Fraunces',serif; font-weight:700; color:var(--green);
-  font-size:0.98rem; border-top:1.5px solid var(--ink); border-bottom:1px solid var(--rule);
+  background:linear-gradient(90deg,#1a6b52,#2D5C8A); color:#fff;
+  font-family:'Fraunces',serif; font-weight:700;
+  font-size:0.98rem; border-top:2px solid #0a3a2c; border-bottom:1px solid #1a5a80;
+  padding:10px 12px;
 }
-.marksheet .mk-subject-row .term-tag{font-weight:500; color:var(--ink-soft); font-family:'Source Sans 3',sans-serif; font-size:0.76rem; text-transform:none;}
+.marksheet .mk-subject-row .term-tag{font-weight:500; color:rgba(255,255,255,0.75); font-family:'Source Sans 3',sans-serif; font-size:0.76rem; text-transform:none;}
 .mk-sl{text-align:center; color:var(--ink-soft); width:40px;}
 .mk-grade{text-align:center;}
 .mk-rating-label{color:var(--ink-soft); font-size:0.86rem;}
-.mk-legend{display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:26px; padding:12px 16px; background:var(--paper); border:1px dashed var(--rule); border-radius:10px;}
+.mk-legend{display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:26px; padding:14px 16px; background:linear-gradient(90deg,rgba(15,76,58,0.07),rgba(45,92,138,0.07)); border:1px solid rgba(15,76,58,0.2); border-radius:10px;}
 .mk-legend-item{display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--ink-soft);}
-.mk-summary thead th{background:var(--gold-deep);}
+.mk-summary thead th{background:linear-gradient(90deg,#C8902F,#b8710f); color:#fff;}
 .mk-summary tbody td:first-child{font-weight:600;}
 
 .sbar{display:flex; align-items:center; margin-bottom:11px; gap:14px;}
@@ -268,28 +276,29 @@ a{color:inherit;}
 .sbar .track{flex:1; height:10px; background:var(--rule); border-radius:6px; overflow:hidden;}
 .sbar .fill{height:100%; border-radius:6px; transition:width .6s cubic-bezier(.2,.8,.2,1);}
 .sbar .val{width:122px; text-align:right; flex-shrink:0;}
-.rbadge{font-size:0.76rem; font-weight:700; padding:4px 10px; border-radius:20px;}
-.rbadge.outstanding{background:#DCEDE3; color:#0F4C3A;}
-.rbadge.excellent{background:#E5F3EC; color:#176B43;}
-.rbadge.verygood{background:#E8F4ED; color:#2E7A52;}
-.rbadge.good{background:#E4EEF7; color:var(--blue);}
-.rbadge.average{background:#FBF0DC; color:#8A5E13;}
-.rbadge.satisfactory{background:#FBEADC; color:#8F5A1F;}
-.rbadge.needs{background:#F6E4E0; color:var(--red);}
+.rbadge{font-size:0.78rem; font-weight:800; padding:5px 12px; border-radius:20px; letter-spacing:0.02em;}
+.rbadge.outstanding{background:#0F4C3A; color:#fff;}
+.rbadge.excellent{background:#1F8A56; color:#fff;}
+.rbadge.verygood{background:#2e9e6e; color:#fff;}
+.rbadge.good{background:#2D5C8A; color:#fff;}
+.rbadge.average{background:#C8902F; color:#fff;}
+.rbadge.satisfactory{background:#b8710f; color:#fff;}
+.rbadge.needs{background:#A5402F; color:#fff;}
 
 .stamp-wrap{display:flex; align-items:center; gap:28px; justify-content:center; margin:32px 0; flex-wrap:wrap;}
 .stamp{
-  width:118px; height:118px; border-radius:50%; border:3px solid var(--red); color:var(--red);
+  width:118px; height:118px; border-radius:50%;
+  border:3px solid #0F4C3A; color:#0F4C3A; background:rgba(15,76,58,0.07);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   transform:rotate(-9deg); position:relative; flex-shrink:0;
   font-family:'Fraunces',serif;
 }
-.stamp::before{content:""; position:absolute; inset:8px; border:1.5px dashed var(--red); border-radius:50%; opacity:0.55;}
-.stamp .g{font-size:2.1rem; font-weight:700; line-height:1;}
-.stamp .gl{font-size:0.6rem; text-transform:uppercase; letter-spacing:0.1em; margin-top:2px;}
+.stamp::before{content:""; position:absolute; inset:8px; border:1.5px dashed #0F4C3A; border-radius:50%; opacity:0.5;}
+.stamp .g{font-size:2.1rem; font-weight:700; line-height:1; color:#0F4C3A;}
+.stamp .gl{font-size:0.6rem; text-transform:uppercase; letter-spacing:0.1em; margin-top:2px; color:#0F4C3A;}
 .report-stats{display:flex; gap:14px; flex-wrap:wrap; justify-content:center;}
-.rstat{background:var(--paper); border:1px solid var(--rule); border-radius:12px; padding:14px 22px; text-align:center; min-width:110px;}
-.rstat .n{font-size:1.5rem; font-weight:700; font-family:'Fraunces',serif;}
+.rstat{background:linear-gradient(135deg,rgba(15,76,58,0.08),rgba(45,92,138,0.08)); border:1.5px solid rgba(15,76,58,0.2); border-radius:12px; padding:14px 22px; text-align:center; min-width:110px;}
+.rstat .n{font-size:1.5rem; font-weight:700; font-family:'Fraunces',serif; color:#0F4C3A;}
 .rstat .l{font-size:0.76rem; color:var(--ink-soft); margin-top:2px;}
 .report-actions{display:flex; gap:10px; justify-content:center; margin-top:30px;}
 .sig-block{display:flex; justify-content:space-between; gap:24px; margin-top:48px; padding-top:8px; flex-wrap:wrap;}
@@ -334,9 +343,62 @@ a{color:inherit;}
 
 @media print{
   .rail,.topbar,.no-print,.toasts{display:none !important;}
-  .main{padding:0;}
-  body{background:#fff;}
-  .card{box-shadow:none; border:none;}
+  .main{padding:0 !important; margin:0 !important;}
+  body{background:#fff !important;}
+  .card{box-shadow:none !important; border:none !important; background:#fff !important;}
+
+  /* force entire report to black on white */
+  .report, .marksheet{background:#fff !important; box-shadow:none !important;}
+
+  /* header: remove gradient, use black text */
+  .report-top{
+    background:#fff !important;
+    border-bottom:2px solid #000 !important;
+    border-radius:0 !important;
+    margin:-10px -10px 20px !important;
+    padding:16px 0 14px !important;
+  }
+  .report-top .glabel,.report-top h2,.report-top .who,.report-top .meta{color:#000 !important;}
+
+  /* tables: black borders, no background colors */
+  .mk-table{border:1.5px solid #000 !important;}
+  .mk-table thead th{background:#000 !important; color:#fff !important; border:1px solid #000 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .mk-table tbody td{border:1px solid #888 !important; background:#fff !important; color:#000 !important;}
+  .mk-table tbody tr:nth-child(even) td{background:#f5f5f5 !important;}
+
+  /* subject rows: black background with white text (bold separator) */
+  .marksheet .mk-subject-row td{background:#000 !important; color:#fff !important; border-color:#000 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .marksheet .mk-subject-row .term-tag{color:#ccc !important;}
+
+  /* grade badges: black border, no fill */
+  .rbadge{background:#fff !important; color:#000 !important; border:1.5px solid #000 !important; font-weight:700 !important;}
+
+  /* legend */
+  .mk-legend{background:#f8f8f8 !important; border:1px solid #999 !important;}
+  .mk-legend-item{color:#000 !important;}
+
+  /* summary table */
+  .mk-summary thead th{background:#333 !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+
+  /* GPA stat tiles */
+  .rstat{background:#f8f8f8 !important; border:1px solid #999 !important;}
+  .rstat .n{color:#000 !important;}
+  .rstat .l{color:#333 !important;}
+
+  /* grade stamp */
+  .stamp{background:#fff !important; border-color:#000 !important; color:#000 !important;}
+  .stamp::before{border-color:#000 !important;}
+  .stamp .g,.stamp .gl{color:#000 !important;}
+
+  /* signature block */
+  .sig-block .rule{border-top-color:#000 !important;}
+  .sig-line .role,.sig-line .name{color:#000 !important;}
+
+  /* class report stat tiles */
+  .report-stats .rstat{background:#f8f8f8 !important;}
+  .ctable th{background:#000 !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .ctable td{color:#000 !important; border-color:#888 !important; background:#fff !important;}
+  .statuspill{background:#f0f0f0 !important; color:#000 !important; border:1px solid #999 !important;}
 }
 @media (max-width:860px){
   .rail{position:fixed; left:-260px; transition:left .25s; z-index:1500; height:100vh;}
@@ -646,6 +708,18 @@ a{color:inherit;}
     <section class="view" id="viewEvaluate">
       <div class="card">
         <h5><span class="ic">&#10003;</span>New evaluation</h5>
+        <div class="grid-2" style="margin-bottom:8px;">
+          <div class="f-group"><label class="f-label">Class</label>
+            <select class="f-select" id="evalClass"><option value="">All classes</option></select>
+          </div>
+          <div class="f-group"><label class="f-label">Section</label>
+            <select class="f-select" id="evalSection">
+              <option value="">All sections</option>
+              <option value="A">Section A</option><option value="B">Section B</option>
+              <option value="C">Section C</option><option value="D">Section D</option>
+            </select>
+          </div>
+        </div>
         <div class="grid-3" style="margin-bottom:8px;">
           <div class="f-group"><label class="f-label">Student</label>
             <select class="f-select" id="evalStudent"><option value="">Choose student</option></select>
@@ -667,6 +741,18 @@ a{color:inherit;}
     <section class="view" id="viewReport">
       <div class="card no-print">
         <h5><span class="ic">&#128196;</span>Individual student report</h5>
+        <div class="grid-2" style="margin-bottom:8px;">
+          <div class="f-group"><label class="f-label">Class</label>
+            <select class="f-select" id="reportClass"><option value="">All classes</option></select>
+          </div>
+          <div class="f-group"><label class="f-label">Section</label>
+            <select class="f-select" id="reportSection">
+              <option value="">All sections</option>
+              <option value="A">Section A</option><option value="B">Section B</option>
+              <option value="C">Section C</option><option value="D">Section D</option>
+            </select>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="f-group"><label class="f-label">Student</label>
             <select class="f-select" id="reportStudent"><option value="">Choose student</option></select>
@@ -1132,25 +1218,51 @@ function pillStyle(cls){
    STUDENTS
    ========================================================= */
 function refreshAllStudentSelects(){
-  [["#evalStudent","Choose student"],["#reportStudent","Choose student"]].forEach(function(pair){
-    const sel = $(pair[0]);
-    const current = sel.value;
-    let html = '<option value="">'+pair[1]+'</option>';
-    store.students.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function(s){
-      html += '<option value="'+s.id+'">'+esc(s.name)+' — Class '+esc(s.className||"—")+esc(s.section)+', Roll '+esc(s.rollNumber)+'</option>';
-    });
-    sel.innerHTML = html;
-    if(store.students.some(function(s){return s.id===current;})) sel.value = current;
+  // full unfiltered lists (initial load)
+  populateStudentSelect("#evalStudent", null, null);
+  populateStudentSelect("#reportStudent", null, null);
+}
+
+function populateStudentSelect(selId, classFilter, sectionFilter){
+  const sel = $(selId);
+  if(!sel) return;
+  const current = sel.value;
+  let list = store.students.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  if(classFilter) list = list.filter(function(s){ return s.className === classFilter; });
+  if(sectionFilter) list = list.filter(function(s){ return s.section === sectionFilter; });
+  let html = '<option value="">Choose student</option>';
+  list.forEach(function(s){
+    html += '<option value="'+s.id+'">'+esc(s.name)+' — Class '+esc(s.className||"—")+esc(s.section)+', Roll '+esc(s.rollNumber)+'</option>';
   });
+  sel.innerHTML = html;
+  if(list.some(function(s){ return s.id === current; })) sel.value = current;
+  else sel.value = "";
+}
+
+function filterEvalStudents(){
+  const cls = $("#evalClass").value;
+  const sec = $("#evalSection").value;
+  populateStudentSelect("#evalStudent", cls||null, sec||null);
+  // reset eval form since student selection changed
+  $("#evalStudent").value = "";
+  $("#evalFormArea").innerHTML = "";
+}
+
+function filterReportStudents(){
+  const cls = $("#reportClass").value;
+  const sec = $("#reportSection").value;
+  populateStudentSelect("#reportStudent", cls||null, sec||null);
+  $("#reportStudent").value = "";
+  $("#reportArea").innerHTML = '<div class="card"><div class="empty"><div class="glyph">&#128196;</div><p>Choose a student to see their report.</p></div></div>';
 }
 
 function populateClassFilterOptions(){
-  [["#filterClass",""],["#classClass",""]].forEach(function(pair){
+  [["#filterClass",""],["#classClass",""],["#evalClass",""],["#reportClass",""]].forEach(function(pair){
     const sel = $(pair[0]);
     if(!sel) return;
     const current = sel.value;
-    const placeholder = pair[0] === "#filterClass" ? '<option value="">All classes</option>' : '<option value="">Choose class</option>';
-    let html = placeholder;
+    const isAll = pair[0] !== "#classClass";
+    let html = isAll ? '<option value="">All classes</option>' : '<option value="">Choose class</option>';
     CLASS_OPTIONS.forEach(function(c){ html += '<option value="'+esc(c)+'">Class '+esc(c)+'</option>'; });
     sel.innerHTML = html;
     sel.value = current;
@@ -1994,11 +2106,14 @@ function init(){
   $("#addHealthRow").addEventListener("click", addHealthRowHandler);
   wireHealthTableRemoval();
 
-  
+  $("#evalClass").addEventListener("change", filterEvalStudents);
+  $("#evalSection").addEventListener("change", filterEvalStudents);
   $("#evalStudent").addEventListener("change", renderEvalForm);
   $("#evalSubject").addEventListener("change", renderEvalForm);
   wireEvalAreaDelegation();
 
+  $("#reportClass").addEventListener("change", filterReportStudents);
+  $("#reportSection").addEventListener("change", filterReportStudents);
   $("#reportStudent").addEventListener("change", renderIndividualReport);
   $("#reportTerm").addEventListener("change", renderIndividualReport);
   wireReportActions();
