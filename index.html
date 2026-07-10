@@ -468,8 +468,41 @@ a{color:inherit;}
       </div>
       <button type="submit" class="btn btn-primary btn-block">Sign in</button>
     </form>
+    <div class="auth-switch" style="margin-top:12px;">
+      <button type="button" id="goForgot" style="background:none;border:none;color:var(--ink-soft);font-size:0.88rem;cursor:pointer;text-decoration:underline;">Forgot password?</button>
+    </div>
     <div class="auth-switch">New here? <button type="button" id="goRegister">Create a teacher account</button></div>
     <div class="demo-hint">First time? Create an account, then sign in with the same username and password. Your data stays saved in this browser even after you close the tab.</div>
+  </div>
+</div>
+
+<!-- AUTH: FORGOT PASSWORD -->
+<div class="auth-wrap" id="forgotPage" style="display:none">
+  <div class="auth-card">
+    <div class="auth-mark">
+      <div class="badge-mini">G</div>
+      <h1>Reset password</h1>
+    </div>
+    <p class="auth-sub">Enter your username and choose a new password.</p>
+    <form id="forgotForm" novalidate>
+      <div class="field" id="f-forgotUsername">
+        <label for="forgotUsername">Username</label>
+        <input type="text" id="forgotUsername" autocomplete="username">
+        <div class="field-error">Enter your username.</div>
+      </div>
+      <div class="field" id="f-forgotNew">
+        <label for="forgotNew">New password</label>
+        <input type="password" id="forgotNew" autocomplete="new-password">
+        <div class="field-error">At least 6 characters.</div>
+      </div>
+      <div class="field" id="f-forgotConfirm">
+        <label for="forgotConfirm">Confirm new password</label>
+        <input type="password" id="forgotConfirm" autocomplete="new-password">
+        <div class="field-error">Passwords don't match.</div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Reset password</button>
+    </form>
+    <div class="auth-switch">Remembered it? <button type="button" id="goLoginFromForgot">Back to sign in</button></div>
   </div>
 </div>
 
@@ -1012,11 +1045,52 @@ function populateSubjectSelect(sel, includeAll){
 
 function showRegister(){
   $("#loginPage").style.display = "none";
+  $("#forgotPage").style.display = "none";
   $("#registerPage").style.display = "flex";
 }
 function showLogin(){
   $("#registerPage").style.display = "none";
+  $("#forgotPage").style.display = "none";
   $("#loginPage").style.display = "flex";
+}
+function showForgot(){
+  $("#loginPage").style.display = "none";
+  $("#registerPage").style.display = "none";
+  $("#forgotPage").style.display = "flex";
+  $("#forgotForm").reset();
+  clearFieldErrors(["f-forgotUsername","f-forgotNew","f-forgotConfirm"]);
+}
+
+function handleForgotSubmit(e){
+  e.preventDefault();
+  const username = $("#forgotUsername").value.trim();
+  const newPass  = $("#forgotNew").value;
+  const confirm  = $("#forgotConfirm").value;
+
+  clearFieldErrors(["f-forgotUsername","f-forgotNew","f-forgotConfirm"]);
+  let valid = true;
+
+  if(!username){ setFieldError("f-forgotUsername", true); valid = false; }
+  else{
+    const found = store.teachers.find(function(t){ return t.username.toLowerCase() === username.toLowerCase(); });
+    if(!found){
+      setFieldError("f-forgotUsername", true);
+      $("#f-forgotUsername .field-error").textContent = "No account found with that username.";
+      valid = false;
+    }
+  }
+  if(!newPass || newPass.length < 6){ setFieldError("f-forgotNew", true); valid = false; }
+  if(confirm !== newPass || !confirm){ setFieldError("f-forgotConfirm", true); valid = false; }
+  if(!valid){ return; }
+
+  const teacher = store.teachers.find(function(t){ return t.username.toLowerCase() === username.toLowerCase(); });
+  teacher.password = newPass;
+  save();
+  toast("Password reset successfully. Please sign in.", "success");
+  showLogin();
+  $("#loginUsername").value = username;
+  $("#loginPassword").value = "";
+  $("#loginPassword").focus();
 }
 
 function handleRegisterSubmit(e){
@@ -2079,6 +2153,9 @@ function init(){
 
   $("#goRegister").addEventListener("click", showRegister);
   $("#goLogin").addEventListener("click", showLogin);
+  $("#goForgot").addEventListener("click", showForgot);
+  $("#goLoginFromForgot").addEventListener("click", showLogin);
+  $("#forgotForm").addEventListener("submit", handleForgotSubmit);
   $("#registerForm").addEventListener("submit", handleRegisterSubmit);
   $("#loginForm").addEventListener("submit", handleLoginSubmit);
   $("#logoutBtn").addEventListener("click", handleLogout);
