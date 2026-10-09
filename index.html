@@ -214,6 +214,8 @@ a{color:inherit;}
 /* evaluation marks grid */
 .mark-input{width:105px;max-width:100%;padding:9px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--paper);font:inherit;color:var(--ink);}
 .mark-input:focus{outline:none;border-color:var(--green);background:#fff;}
+.live-percent,.live-gpa,.live-grade{font-weight:700;white-space:nowrap;text-align:center;font-variant-numeric:tabular-nums;}
+.live-percent{color:var(--blue);}.live-gpa,.live-grade{color:var(--green);}
 .eval-summary{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;}
 .eval-summary .summary-box{flex:1;min-width:145px;padding:13px 15px;border:1px solid var(--rule);border-radius:10px;background:var(--paper);}
 .eval-summary .summary-box small{display:block;color:var(--ink-soft);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;}
@@ -1676,11 +1678,12 @@ function renderEvalForm(){
   if(!areas.length){ area.innerHTML = '<div class="empty"><p>This subject has no evaluation areas configured yet.</p></div>'; return; }
   let html = '<div class="eval-banner">&#9998;&nbsp; Evaluating <strong>'+esc(student.name)+'</strong> &nbsp;·&nbsp; '+esc(subject)+'</div>';
   html += '<p style="color:var(--ink-soft);margin:0 0 12px;">Enter the maximum marks and the marks obtained for each criterion. Totals update automatically.</p>';
-  html += '<div class="scroll-x"><table class="etable"><thead><tr><th>Evaluation Criterion</th><th>Total Marks</th><th>Obtained Marks</th></tr></thead><tbody>';
+  html += '<div class="scroll-x"><table class="etable"><thead><tr><th>Evaluation Criterion</th><th>Total Marks</th><th>Obtained Marks</th><th>Percentage</th><th>GPA</th><th>Grade</th></tr></thead><tbody>';
   areas.forEach(function(a, idx){
     html += '<tr data-area="'+esc(a)+'"><td class="earea"><span class="num mono">'+String(idx+1).padStart(2,'0')+'</span>'+esc(a)+'</td>'+
       '<td><input class="mark-input total-mark" type="number" min="0.01" step="any" inputmode="decimal" aria-label="Total marks for '+esc(a)+'" placeholder="e.g. 10"></td>'+
-      '<td><input class="mark-input obtained-mark" type="number" min="0" step="any" inputmode="decimal" aria-label="Obtained marks for '+esc(a)+'" placeholder="e.g. 8"></td></tr>';
+      '<td><input class="mark-input obtained-mark" type="number" min="0" step="any" inputmode="decimal" aria-label="Obtained marks for '+esc(a)+'" placeholder="e.g. 8"></td>'+
+      '<td class="live-percent">—</td><td class="live-gpa">—</td><td class="live-grade">—</td></tr>';
   });
   html += '</tbody></table></div>';
   html += '<div class="eval-summary"><div class="summary-box"><small>Total / Full Marks</small><strong id="evalTotalSum">0</strong></div><div class="summary-box"><small>Obtained Marks</small><strong id="evalObtainedSum">0</strong></div><div class="summary-box"><small>Percentage</small><strong id="evalPercentSum">0%</strong></div><div class="summary-box"><small>GPA (CDC)</small><strong id="evalGpaSum">—</strong></div><div class="summary-box"><small>Grade (CDC)</small><strong id="evalGradeSum">—</strong></div></div>';
@@ -1693,7 +1696,19 @@ function updateEvalTotals(){
   let total=0,obtained=0;
   area.querySelectorAll('tr[data-area]').forEach(function(row){
     const t=row.querySelector('.total-mark'); const o=row.querySelector('.obtained-mark');
-    total += Math.max(0,Number(t.value)||0); obtained += Math.max(0,Number(o.value)||0);
+    const max=Number(t.value)||0, got=Number(o.value)||0;
+    total += Math.max(0,max); obtained += Math.max(0,got);
+    const rowPctEl=row.querySelector('.live-percent'), rowGpaEl=row.querySelector('.live-gpa'), rowGradeEl=row.querySelector('.live-grade');
+    if(max>0 && t.value.trim()!=='' && o.value.trim()!=='' && got>=0 && got<=max){
+      const rowPct=got/max*100, rowCdc=cdcGradeFromPct(rowPct);
+      if(rowPctEl) rowPctEl.textContent=rowPct.toFixed(1)+'%';
+      if(rowGpaEl) rowGpaEl.textContent=rowCdc.gpa===null?'NG':rowCdc.gpa.toFixed(1);
+      if(rowGradeEl) rowGradeEl.textContent=rowCdc.grade;
+    } else {
+      if(rowPctEl) rowPctEl.textContent='—';
+      if(rowGpaEl) rowGpaEl.textContent='—';
+      if(rowGradeEl) rowGradeEl.textContent='—';
+    }
   });
   const totalEl=$("#evalTotalSum"), obtainedEl=$("#evalObtainedSum"), pctEl=$("#evalPercentSum"), gpaEl=$("#evalGpaSum"), gradeEl=$("#evalGradeSum");
   const pct=total>0 ? (obtained/total*100) : 0;
@@ -1763,20 +1778,20 @@ function renderIndividualReport(){
   let sl=1,bodyRows='',overallTotal=0,overallObtained=0;
   evs.forEach(function(ev){
     const marks=ev.marks||{}; const keys=Object.keys(marks);
-    bodyRows+='<tr class="mk-subject-row"><td colspan="5">'+esc(ev.subject)+' <span class="term-tag">'+esc(ev.term)+'</span></td></tr>';
+    bodyRows+='<tr class="mk-subject-row"><td colspan="7">'+esc(ev.subject)+' <span class="term-tag">'+esc(ev.term)+'</span></td></tr>';
     if(keys.length){
       keys.forEach(function(area){const m=marks[area]||{};const max=Number(m.total)||0;const got=Number(m.obtained)||0;overallTotal+=max;overallObtained+=got;
-        bodyRows+='<tr><td class="mk-sl mono">'+sl+'</td><td class="mk-area">'+esc(area)+'</td><td class="mono">'+max+'</td><td class="mono">'+got+'</td><td class="mono">'+(max?((got/max)*100).toFixed(1)+'%':'—')+'</td></tr>';sl++;});
+        const rowPct=max?(got/max)*100:0;const rowGrade=cdcGradeFromPct(rowPct);const rowGpa=rowGrade.gpa===null?'NG':rowGrade.gpa.toFixed(1);bodyRows+='<tr><td class="mk-sl mono">'+sl+'</td><td class="mk-area">'+esc(area)+'</td><td class="mono">'+max+'</td><td class="mono">'+got+'</td><td class="mono">'+(max?rowPct.toFixed(1)+'%':'—')+'</td><td class="mono">'+(max?rowGpa:'—')+'</td><td class="mono">'+(max?rowGrade.grade:'—')+'</td></tr>';sl++;});
     }else{
       Object.keys(ev.scores||{}).forEach(function(area){const rating=ev.scores[area];const got=RATING_VALUES[rating]||0;const max=MAX_RATING;overallTotal+=max;overallObtained+=got;
-        bodyRows+='<tr><td class="mk-sl mono">'+sl+'</td><td class="mk-area">'+esc(area)+' (legacy rating)</td><td>'+max+'</td><td>'+got+'</td><td>'+(got/max*100).toFixed(1)+'%</td></tr>';sl++;});
+        const rowPct=got/max*100;const rowGrade=cdcGradeFromPct(rowPct);const rowGpa=rowGrade.gpa===null?'NG':rowGrade.gpa.toFixed(1);bodyRows+='<tr><td class="mk-sl mono">'+sl+'</td><td class="mk-area">'+esc(area)+' (legacy rating)</td><td>'+max+'</td><td>'+got+'</td><td>'+rowPct.toFixed(1)+'%</td><td>'+rowGpa+'</td><td>'+rowGrade.grade+'</td></tr>';sl++;});
     }
   });
   const pct=overallTotal?(overallObtained/overallTotal*100):0;
   const finalGrade=cdcGradeFromPct(pct);
   const gpaText=finalGrade.gpa===null?"NG":finalGrade.gpa.toFixed(1);
   const html='<div class="report marksheet"><div class="report-top"><span class="glabel">'+esc(store.settings.schoolName||"School")+'</span><h2>Student Evaluation Marksheet</h2><div class="who">'+esc(student.name)+'</div><div class="meta">Class '+esc(student.className||"—")+esc(student.section)+' · Roll '+esc(student.rollNumber)+' · '+esc(store.settings.academicYear||"")+'</div></div>'+
-    '<table class="mk-table"><thead><tr><th style="width:40px;">SL</th><th>Evaluation Criterion</th><th>Total Marks</th><th>Obtained Marks</th><th>Percentage</th></tr></thead><tbody>'+bodyRows+'</tbody></table>'+
+    '<div class="scroll-x"><table class="mk-table"><thead><tr><th style="width:40px;">SL</th><th>Evaluation Criterion</th><th>Total Marks</th><th>Obtained Marks</th><th>Percentage</th><th>GPA</th><th>Grade</th></tr></thead><tbody>'+bodyRows+'</tbody></table></div>'+
     '<div class="report-stats" style="margin-top:22px;"><div class="rstat"><div class="n">'+Number(overallTotal.toFixed(2))+'</div><div class="l">Total / Full Marks</div></div><div class="rstat"><div class="n">'+Number(overallObtained.toFixed(2))+'</div><div class="l">Obtained Marks</div></div><div class="rstat"><div class="n">'+pct.toFixed(1)+'%</div><div class="l">Overall Percentage</div></div><div class="rstat"><div class="n">'+gpaText+'</div><div class="l">GPA (CDC)</div></div><div class="rstat"><div class="n">'+finalGrade.grade+'</div><div class="l">Final Grade (CDC)</div></div></div><p style="font-size:.82rem;margin-top:8px;color:var(--ink-soft);">CDC performance level: '+esc(finalGrade.remark)+'</p>'+buildSignatureBlock()+'<div class="report-actions no-print"><button class="btn btn-primary" id="printReportBtn">Print report</button><button class="btn btn-ghost" id="downloadReportBtn">Download as PDF</button></div></div>';
   container.innerHTML=html;
 }
