@@ -211,6 +211,13 @@ a{color:inherit;}
 .icbtn.edit:hover{color:var(--gold-deep); border-color:var(--gold-deep);}
 .icbtn.del:hover{color:var(--red); border-color:var(--red);}
 
+/* evaluation marks grid */
+.mark-input{width:105px;max-width:100%;padding:9px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--paper);font:inherit;color:var(--ink);}
+.mark-input:focus{outline:none;border-color:var(--green);background:#fff;}
+.eval-summary{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;}
+.eval-summary .summary-box{flex:1;min-width:145px;padding:13px 15px;border:1px solid var(--rule);border-radius:10px;background:var(--paper);}
+.eval-summary .summary-box small{display:block;color:var(--ink-soft);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;}
+.eval-summary .summary-box strong{display:block;font-size:1.25rem;margin-top:3px;color:var(--green);}
 /* evaluation rating grid */
 .eval-banner{background:rgba(15,76,58,0.07); border:1px solid rgba(15,76,58,0.18); border-radius:11px; padding:13px 16px; margin-bottom:20px; font-size:0.92rem; display:flex; align-items:center; gap:10px;}
 .etable{width:100%; border-collapse:separate; border-spacing:0 8px;}
@@ -950,6 +957,19 @@ function avgGpa(ratings){
   const sum = ratings.reduce(function(total, r){ return total + (RATING_GPA[r] || 0); }, 0);
   return sum / ratings.length;
 }
+function evaluationTotals(ev){
+  if(ev && ev.marks){
+    return Object.values(ev.marks).reduce(function(t,m){
+      t.total += Number(m.total)||0; t.obtained += Number(m.obtained)||0; return t;
+    },{total:0,obtained:0});
+  }
+  // Backward compatibility for evaluations saved with the older rating system.
+  const ratings = Object.values((ev && ev.scores)||{});
+  return {total:ratings.length*MAX_RATING, obtained:ratings.reduce(function(n,r){return n+(RATING_VALUES[r]||0);},0)};
+}
+function evaluationPercent(ev){
+  const t=evaluationTotals(ev); return t.total>0 ? (t.obtained/t.total)*100 : 0;
+}
 const RATING_KEY = { "Outstanding":"outstanding", "Excellent":"excellent", "Very Good":"verygood", "Good":"good", "Average":"average", "Satisfactory":"satisfactory", "Needs Improvement":"needs" };
 const RATING_BADGE_CLASS = RATING_KEY;
 const RATING_COLOR = {
@@ -994,14 +1014,20 @@ function toast(message, type){
   setTimeout(function(){ el.style.transition="opacity .3s"; el.style.opacity="0"; setTimeout(function(){ el.remove(); }, 300); }, 3600);
 }
 
-function gradeFromPct(pct){
-  if(pct>=85) return "A+";
-  if(pct>=75) return "A";
-  if(pct>=65) return "B+";
-  if(pct>=55) return "B";
-  if(pct>=45) return "C";
-  return "D";
+// CDC Nepal Letter Grading Directive (2078, fourth amendment 2081):
+// A+ 90-100 (4.0), A 80-<90 (3.6), B+ 70-<80 (3.2), B 60-<70 (2.8),
+// C+ 50-<60 (2.4), C 40-<50 (2.0), D 35-<40 (1.6), below 35 = NG.
+function cdcGradeFromPct(pct){
+  if(pct >= 90) return {grade:"A+", gpa:4.0, remark:"Outstanding"};
+  if(pct >= 80) return {grade:"A", gpa:3.6, remark:"Excellent"};
+  if(pct >= 70) return {grade:"B+", gpa:3.2, remark:"Very Good"};
+  if(pct >= 60) return {grade:"B", gpa:2.8, remark:"Good"};
+  if(pct >= 50) return {grade:"C+", gpa:2.4, remark:"Satisfactory"};
+  if(pct >= 40) return {grade:"C", gpa:2.0, remark:"Acceptable"};
+  if(pct >= 35) return {grade:"D", gpa:1.6, remark:"Basic"};
+  return {grade:"NG", gpa:null, remark:"Not Graded"};
 }
+function gradeFromPct(pct){ return cdcGradeFromPct(pct).grade; }
 function statusFromPct(pct){
   if(pct>=90) return {text:"Outstanding", cls:"outstanding"};
   if(pct>=78) return {text:"Excellent", cls:"excellent"};
@@ -1239,38 +1265,26 @@ function showView(viewId){
 function renderDashboard(){
   $("#statStudents").textContent = store.students.length;
   $("#statEvals").textContent = store.evaluations.length;
-
-  let totalScore = 0, totalItems = 0;
-  store.evaluations.forEach(function(ev){
-    Object.values(ev.scores).forEach(function(r){ totalScore += RATING_VALUES[r]; totalItems++; });
-  });
-  const avgPct = totalItems ? Math.round((totalScore/(totalItems*MAX_RATING))*100) : null;
+  const validEvals = store.evaluations.filter(function(ev){return evaluationTotals(ev).total>0;});
+  const avgPct = validEvals.length ? Math.round(validEvals.reduce(function(sum,ev){return sum+evaluationPercent(ev);},0)/validEvals.length) : null;
   $("#statAvg").textContent = avgPct==null ? "—" : avgPct + "%";
-
-  // students whose latest average is below 50%
   let flagCount = 0;
   store.students.forEach(function(s){
     const evs = store.evaluations.filter(function(e){ return e.studentId === s.id; });
-    if(!evs.length) return;
-    let t=0,n=0;
-    evs.forEach(function(ev){ Object.values(ev.scores).forEach(function(r){ t+=RATING_VALUES[r]; n++; }); });
-    if(n && Math.round((t/(n*MAX_RATING))*100) < 50) flagCount++;
+    if(evs.length && evs.reduce(function(sum,ev){return sum+evaluationPercent(ev);},0)/evs.length < 50) flagCount++;
   });
   $("#statFlag").textContent = flagCount;
-
   const recentDiv = $("#recentList");
   if(!store.evaluations.length){
     recentDiv.innerHTML = '<div class="empty"><div class="glyph">&#128203;</div><p>No evaluations yet. Record one from "New evaluation".</p></div>';
     return;
   }
   const recent = store.evaluations.slice(-6).reverse();
-  let html = '<div class="scroll-x"><table class="ctable"><thead><tr><th>Student</th><th>Subject</th><th>Term</th><th>Date</th><th>Score</th></tr></thead><tbody>';
+  let html = '<div class="scroll-x"><table class="ctable"><thead><tr><th>Student</th><th>Subject</th><th>Term</th><th>Date</th><th>Marks</th><th>Percentage</th></tr></thead><tbody>';
   recent.forEach(function(ev){
     const student = store.students.find(function(s){ return s.id === ev.studentId; });
-    const scores = Object.values(ev.scores);
-    const pct = Math.round((scores.reduce(function(a,b){return a+RATING_VALUES[b];},0)/(scores.length*MAX_RATING))*100);
-    const st = statusFromPct(pct);
-    html += '<tr><td>'+esc(student?student.name:"Unknown")+'</td><td>'+esc(ev.subject)+'</td><td>'+esc(ev.term)+'</td><td>'+esc(fmtDate(ev.date))+'</td><td><span class="statuspill '+st.cls+'" style="'+pillStyle(st.cls)+'">'+pct+'%</span></td></tr>';
+    const totals = evaluationTotals(ev); const pct = Math.round(evaluationPercent(ev)); const st = statusFromPct(pct);
+    html += '<tr><td>'+esc(student?student.name:"Unknown")+'</td><td>'+esc(ev.subject)+'</td><td>'+esc(ev.term)+'</td><td>'+esc(fmtDate(ev.date))+'</td><td>'+totals.obtained+' / '+totals.total+'</td><td><span class="statuspill '+st.cls+'" style="'+pillStyle(st.cls)+'">'+pct+'%</span></td></tr>';
   });
   html += '</tbody></table></div>';
   recentDiv.innerHTML = html;
@@ -1657,87 +1671,69 @@ function renderEvalForm(){
   const subject = $("#evalSubject").value;
   const area = $("#evalFormArea");
   if(!studentId || !subject){ area.innerHTML = ""; return; }
-
   const student = store.students.find(function(s){ return s.id === studentId; });
   const areas = store.subjects[subject] || [];
-  if(!areas.length){
-    area.innerHTML = '<div class="empty"><p>This subject has no evaluation areas configured yet.</p></div>';
-    return;
-  }
-
+  if(!areas.length){ area.innerHTML = '<div class="empty"><p>This subject has no evaluation areas configured yet.</p></div>'; return; }
   let html = '<div class="eval-banner">&#9998;&nbsp; Evaluating <strong>'+esc(student.name)+'</strong> &nbsp;·&nbsp; '+esc(subject)+'</div>';
-  html += '<div class="scroll-x"><table class="etable"><tbody>';
+  html += '<p style="color:var(--ink-soft);margin:0 0 12px;">Enter the maximum marks and the marks obtained for each criterion. Totals update automatically.</p>';
+  html += '<div class="scroll-x"><table class="etable"><thead><tr><th>Evaluation Criterion</th><th>Total Marks</th><th>Obtained Marks</th></tr></thead><tbody>';
   areas.forEach(function(a, idx){
-    html += '<tr data-area="'+esc(a)+'">'+
-      '<td class="earea"><span class="num mono">0'+(idx+1)+'</span>'+esc(a)+'</td>'+
-      '<td><div class="eopts">'+
-        RATING_LABELS.map(function(label){
-          return '<div class="eopt sel-'+RATING_KEY[label]+'" data-rating="'+esc(label)+'">'+esc(label)+'</div>';
-        }).join("")+
-      '</div></td>'+
-    '</tr>';
+    html += '<tr data-area="'+esc(a)+'"><td class="earea"><span class="num mono">'+String(idx+1).padStart(2,'0')+'</span>'+esc(a)+'</td>'+
+      '<td><input class="mark-input total-mark" type="number" min="0.01" step="any" inputmode="decimal" aria-label="Total marks for '+esc(a)+'" placeholder="e.g. 10"></td>'+
+      '<td><input class="mark-input obtained-mark" type="number" min="0" step="any" inputmode="decimal" aria-label="Obtained marks for '+esc(a)+'" placeholder="e.g. 8"></td></tr>';
   });
   html += '</tbody></table></div>';
-  html += '<div style="display:flex; gap:12px; margin-top:22px;">'+
-    '<button type="button" class="btn btn-primary" id="submitEvalBtn">Save evaluation</button>'+
-    '<button type="button" class="btn btn-ghost" id="clearEvalBtn">Reset</button>'+
-  '</div>';
+  html += '<div class="eval-summary"><div class="summary-box"><small>Total / Full Marks</small><strong id="evalTotalSum">0</strong></div><div class="summary-box"><small>Obtained Marks</small><strong id="evalObtainedSum">0</strong></div><div class="summary-box"><small>Percentage</small><strong id="evalPercentSum">0%</strong></div><div class="summary-box"><small>GPA (CDC)</small><strong id="evalGpaSum">—</strong></div><div class="summary-box"><small>Grade (CDC)</small><strong id="evalGradeSum">—</strong></div></div>';
+  html += '<div style="display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;"><button type="button" class="btn btn-primary" id="submitEvalBtn">Save evaluation</button><button type="button" class="btn btn-ghost" id="clearEvalBtn">Reset</button></div>';
   area.innerHTML = html;
+  updateEvalTotals();
 }
-
+function updateEvalTotals(){
+  const area=$("#evalFormArea"); if(!area) return;
+  let total=0,obtained=0;
+  area.querySelectorAll('tr[data-area]').forEach(function(row){
+    const t=row.querySelector('.total-mark'); const o=row.querySelector('.obtained-mark');
+    total += Math.max(0,Number(t.value)||0); obtained += Math.max(0,Number(o.value)||0);
+  });
+  const totalEl=$("#evalTotalSum"), obtainedEl=$("#evalObtainedSum"), pctEl=$("#evalPercentSum"), gpaEl=$("#evalGpaSum"), gradeEl=$("#evalGradeSum");
+  const pct=total>0 ? (obtained/total*100) : 0;
+  const cdc=total>0 ? cdcGradeFromPct(pct) : {gpa:null,grade:'—'};
+  if(totalEl) totalEl.textContent=Number(total.toFixed(2)).toString();
+  if(obtainedEl) obtainedEl.textContent=Number(obtained.toFixed(2)).toString();
+  if(pctEl) pctEl.textContent=pct.toFixed(1)+'%';
+  if(gpaEl) gpaEl.textContent=cdc.gpa===null ? (total>0 ? 'NG' : '—') : cdc.gpa.toFixed(1);
+  if(gradeEl) gradeEl.textContent=cdc.grade;
+}
 function wireEvalAreaDelegation(){
   $("#evalFormArea").addEventListener("click", function(e){
-    const opt = e.target.closest(".eopt");
-    if(opt){
-      const row = opt.closest("tr");
-      row.querySelectorAll(".eopt").forEach(function(o){ o.classList.remove("is-selected"); });
-      opt.classList.add("is-selected");
-      return;
-    }
     if(e.target.id === "submitEvalBtn"){ submitEvaluation(); return; }
     if(e.target.id === "clearEvalBtn"){ clearEvalForm(); return; }
   });
+  $("#evalFormArea").addEventListener("input", function(e){
+    if(e.target.matches('.total-mark,.obtained-mark')) updateEvalTotals();
+  });
 }
-
 function submitEvaluation(){
-  const studentId = $("#evalStudent").value;
-  const subject = $("#evalSubject").value;
-  const term = $("#evalTerm").value;
+  const studentId = $("#evalStudent").value; const subject = $("#evalSubject").value; const term = $("#evalTerm").value;
   if(!studentId || !subject){ toast("Choose a student and subject first.", "error"); return; }
-
-  const areas = store.subjects[subject] || [];
-  const scores = {};
-  let allRated = true;
+  const areas = store.subjects[subject] || []; const marks = {}; let valid=true; let total=0; let obtained=0;
   $all("#evalFormArea tr[data-area]").forEach(function(row){
-    const selected = row.querySelector(".eopt.is-selected");
-    const areaName = row.dataset.area;
-    if(selected){ scores[areaName] = selected.dataset.rating; }
-    else { allRated = false; }
+    const areaName=row.dataset.area; const totalInput=row.querySelector('.total-mark'); const obtainedInput=row.querySelector('.obtained-mark');
+    const max=Number(totalInput.value); const got=Number(obtainedInput.value);
+    totalInput.setCustomValidity(''); obtainedInput.setCustomValidity('');
+    if(totalInput.value.trim()==='' || !Number.isFinite(max) || max<=0){ totalInput.setCustomValidity('Enter total marks greater than zero.'); totalInput.reportValidity(); valid=false; return; }
+    if(obtainedInput.value.trim()==='' || !Number.isFinite(got) || got<0){ obtainedInput.setCustomValidity('Enter obtained marks (zero or more).'); obtainedInput.reportValidity(); valid=false; return; }
+    if(got>max){ obtainedInput.setCustomValidity('Obtained marks cannot exceed total marks.'); obtainedInput.reportValidity(); valid=false; return; }
+    marks[areaName]={total:max,obtained:got}; total+=max; obtained+=got;
   });
-  if(!areas.length || !allRated){ toast("Rate every area before saving.", "error"); return; }
-
-  store.evaluations.push({
-    id: uid(),
-    studentId: studentId,
-    subject: subject,
-    term: term,
-    scores: scores,
-    date: todayStr(),
-    teacherId: store.currentTeacherId
-  });
-  save();
-  clearEvalForm();
-  renderDashboard();
-  renderStudentsList();
-  toast("Evaluation saved.", "success");
+  if(!areas.length || !valid || Object.keys(marks).length!==areas.length){ toast("Check every criterion. Obtained marks must not exceed total marks.", "error"); return; }
+  if(total<=0){toast('Total marks must be greater than zero.','error');return;}
+  store.evaluations.push({id:uid(),studentId:studentId,subject:subject,term:term,marks:marks,totalMarks:total,obtainedMarks:obtained,percentage:(obtained/total)*100,date:todayStr(),teacherId:store.currentTeacherId});
+  save(); clearEvalForm(); renderDashboard(); renderStudentsList(); toast("Evaluation saved with marks.", "success");
 }
-
 function clearEvalForm(){
-  $("#evalStudent").value = "";
-  $("#evalSubject").value = "";
-  $("#evalFormArea").innerHTML = "";
+  $("#evalStudent").value=""; $("#evalSubject").value=""; $("#evalFormArea").innerHTML="";
 }
-
 /* =========================================================
    INDIVIDUAL REPORT
    ========================================================= */
@@ -1759,92 +1755,31 @@ function ratingShortCode(rating){
 
 
 function renderIndividualReport(){
-  const studentId = $("#reportStudent").value;
-  const term = $("#reportTerm").value;
-  const container = $("#reportArea");
-
-  if(!studentId){
-    container.innerHTML = '<div class="card"><div class="empty"><div class="glyph">&#128196;</div><p>Choose a student to see their report.</p></div></div>';
-    return;
-  }
-  const student = store.students.find(function(s){ return s.id === studentId; });
-  let evs = store.evaluations.filter(function(e){ return e.studentId === studentId; });
-  if(term !== "All") evs = evs.filter(function(e){ return e.term === term; });
-
-  if(!evs.length){
-    container.innerHTML = '<div class="card"><div class="empty"><div class="glyph">&#128203;</div><p>No evaluations recorded for '+esc(student.name)+(term!=="All" ? " in " + esc(term) : "")+' yet.</p></div></div>';
-    return;
-  }
-
-  let sl = 1;
-  let bodyRows = "";
-  const subjectTotals = [];
-
+  const studentId=$("#reportStudent").value; const term=$("#reportTerm").value; const container=$("#reportArea");
+  if(!studentId){container.innerHTML='<div class="card"><div class="empty"><div class="glyph">&#128196;</div><p>Choose a student to see their report.</p></div></div>';return;}
+  const student=store.students.find(function(s){return s.id===studentId;});
+  let evs=store.evaluations.filter(function(e){return e.studentId===studentId;}); if(term!=="All") evs=evs.filter(function(e){return e.term===term;});
+  if(!evs.length){container.innerHTML='<div class="card"><div class="empty"><div class="glyph">&#128203;</div><p>No evaluations recorded for '+esc(student.name)+(term!=="All"?' in '+esc(term):'')+' yet.</p></div></div>';return;}
+  let sl=1,bodyRows='',overallTotal=0,overallObtained=0;
   evs.forEach(function(ev){
-    const areaKeys = Object.keys(ev.scores);
-    bodyRows += '<tr class="mk-subject-row"><td colspan="4">'+esc(ev.subject)+' <span class="term-tag">'+esc(ev.term)+'</span></td></tr>';
-    areaKeys.forEach(function(area){
-      const rating = ev.scores[area];
-      bodyRows += '<tr>'+
-        '<td class="mk-sl mono">'+sl+'</td>'+
-        '<td class="mk-area">'+esc(area)+'</td>'+
-        '<td class="mk-grade"><span class="rbadge '+RATING_BADGE_CLASS[rating]+'">'+gpaToGrade(RATING_GPA[rating])+'</span></td>'+
-        '<td class="mk-rating-label">'+esc(rating)+'</td>'+
-      '</tr>';
-      sl++;
-    });
-    subjectTotals.push({ subject: ev.subject, ratings: areaKeys.map(function(a){ return ev.scores[a]; }) });
+    const marks=ev.marks||{}; const keys=Object.keys(marks);
+    bodyRows+='<tr class="mk-subject-row"><td colspan="5">'+esc(ev.subject)+' <span class="term-tag">'+esc(ev.term)+'</span></td></tr>';
+    if(keys.length){
+      keys.forEach(function(area){const m=marks[area]||{};const max=Number(m.total)||0;const got=Number(m.obtained)||0;overallTotal+=max;overallObtained+=got;
+        bodyRows+='<tr><td class="mk-sl mono">'+sl+'</td><td class="mk-area">'+esc(area)+'</td><td class="mono">'+max+'</td><td class="mono">'+got+'</td><td class="mono">'+(max?((got/max)*100).toFixed(1)+'%':'—')+'</td></tr>';sl++;});
+    }else{
+      Object.keys(ev.scores||{}).forEach(function(area){const rating=ev.scores[area];const got=RATING_VALUES[rating]||0;const max=MAX_RATING;overallTotal+=max;overallObtained+=got;
+        bodyRows+='<tr><td class="mk-sl mono">'+sl+'</td><td class="mk-area">'+esc(area)+' (legacy rating)</td><td>'+max+'</td><td>'+got+'</td><td>'+(got/max*100).toFixed(1)+'%</td></tr>';sl++;});
+    }
   });
-
-  const allRatings = [];
-  subjectTotals.forEach(function(s){ allRatings.push.apply(allRatings, s.ratings); });
-  const overallGpa = avgGpa(allRatings);
-  const overallGrade = allRatings.length ? gpaToGrade(overallGpa) : "—";
-
-  let summaryRows = subjectTotals.map(function(s){
-    const subjGpa = avgGpa(s.ratings);
-    const subjGrade = gpaToGrade(subjGpa);
-    return '<tr><td>'+esc(s.subject)+'</td><td class="mono">'+subjGpa.toFixed(2)+'</td><td>'+subjGrade+'</td></tr>';
-  }).join("");
-
-  const legend = RATING_LABELS.map(function(r){
-    return '<span class="mk-legend-item"><span class="rbadge '+RATING_BADGE_CLASS[r]+'">'+ratingShortCode(r)+'</span> '+esc(r)+' ('+RATING_GPA[r].toFixed(1)+')</span>';
-  }).join("");
-
-  const html =
-    '<div class="report marksheet">'+
-      '<div class="report-top">'+
-        '<span class="glabel">'+esc(store.settings.schoolName||"School")+'</span>'+
-        '<div class="who">'+esc(student.name)+'</div>'+
-        '<div class="meta">Class '+esc(student.className||"—")+esc(student.section)+' · Roll '+esc(student.rollNumber)+' · '+esc(store.settings.academicYear||"")+'</div>'+
-      '</div>'+
-
-      '<table class="mk-table"><thead><tr><th style="width:40px;">SL</th><th>Evaluation Area</th><th style="width:70px;">Grade</th><th>Remarks</th></tr></thead><tbody>'+
-        bodyRows+
-      '</tbody></table>'+
-
-      '<div class="mk-legend">'+legend+'</div>'+
-
-      (subjectTotals.length > 1 ?
-        '<table class="mk-table mk-summary"><thead><tr><th>Subject</th><th style="width:80px;">GPA</th><th style="width:70px;">Grade</th></tr></thead><tbody>'+summaryRows+'</tbody></table>'
-        : '')+
-
-      '<div class="stamp-wrap">'+
-        '<div class="stamp"><div class="g">'+overallGrade+'</div><div class="gl">Grade</div></div>'+
-        '<div class="report-stats">'+
-          '<div class="rstat"><div class="n">'+overallGpa.toFixed(2)+'</div><div class="l">GPA</div></div>'+
-          '<div class="rstat"><div class="n">'+evs.length+'</div><div class="l">Subjects evaluated</div></div>'+
-        '</div>'+
-      '</div>'+
-      buildSignatureBlock()+
-      '<div class="report-actions no-print">'+
-        '<button class="btn btn-primary" id="printReportBtn">Print report</button>'+
-        '<button class="btn btn-ghost" id="downloadReportBtn">Download as PDF</button>'+
-      '</div>'+
-    '</div>';
-  container.innerHTML = html;
+  const pct=overallTotal?(overallObtained/overallTotal*100):0;
+  const finalGrade=cdcGradeFromPct(pct);
+  const gpaText=finalGrade.gpa===null?"NG":finalGrade.gpa.toFixed(1);
+  const html='<div class="report marksheet"><div class="report-top"><span class="glabel">'+esc(store.settings.schoolName||"School")+'</span><h2>Student Evaluation Marksheet</h2><div class="who">'+esc(student.name)+'</div><div class="meta">Class '+esc(student.className||"—")+esc(student.section)+' · Roll '+esc(student.rollNumber)+' · '+esc(store.settings.academicYear||"")+'</div></div>'+
+    '<table class="mk-table"><thead><tr><th style="width:40px;">SL</th><th>Evaluation Criterion</th><th>Total Marks</th><th>Obtained Marks</th><th>Percentage</th></tr></thead><tbody>'+bodyRows+'</tbody></table>'+
+    '<div class="report-stats" style="margin-top:22px;"><div class="rstat"><div class="n">'+Number(overallTotal.toFixed(2))+'</div><div class="l">Total / Full Marks</div></div><div class="rstat"><div class="n">'+Number(overallObtained.toFixed(2))+'</div><div class="l">Obtained Marks</div></div><div class="rstat"><div class="n">'+pct.toFixed(1)+'%</div><div class="l">Overall Percentage</div></div><div class="rstat"><div class="n">'+gpaText+'</div><div class="l">GPA (CDC)</div></div><div class="rstat"><div class="n">'+finalGrade.grade+'</div><div class="l">Final Grade (CDC)</div></div></div><p style="font-size:.82rem;margin-top:8px;color:var(--ink-soft);">CDC performance level: '+esc(finalGrade.remark)+'</p>'+buildSignatureBlock()+'<div class="report-actions no-print"><button class="btn btn-primary" id="printReportBtn">Print report</button><button class="btn btn-ghost" id="downloadReportBtn">Download as PDF</button></div></div>';
+  container.innerHTML=html;
 }
-
 function wireReportActions(){
   $("#reportArea").addEventListener("click", function(e){
     if(e.target.id === "printReportBtn"){ window.print(); }
@@ -1858,90 +1793,27 @@ function wireReportActions(){
    CLASS REPORT
    ========================================================= */
 function renderClassReport(){
-  const className = $("#classClass").value;
-  const section = $("#classSection").value;
-  const subject = $("#classSubject").value;
-  const term = $("#classTerm").value;
-  const container = $("#classReportArea");
-
-  if(!className || !section){
-    container.innerHTML = '<div class="card"><div class="empty"><div class="glyph">&#128202;</div><p>Choose a class and section to see the report.</p></div></div>';
-    return;
-  }
-  const classStudents = store.students.filter(function(s){ return s.section === section && s.className === className; });
-  if(!classStudents.length){
-    container.innerHTML = '<div class="card"><div class="empty"><p>No students found in Class '+esc(className)+esc(section)+'.</p></div></div>';
-    return;
-  }
-
-  let classEvals = store.evaluations.filter(function(e){
-    const st = store.students.find(function(s){ return s.id === e.studentId; });
-    return st && st.section === section && st.className === className;
-  });
-  if(subject !== "All") classEvals = classEvals.filter(function(e){ return e.subject === subject; });
-  if(term !== "All") classEvals = classEvals.filter(function(e){ return e.term === term; });
-
-  const allClassRatings = [];
-  classEvals.forEach(function(ev){ Object.values(ev.scores).forEach(function(r){ allClassRatings.push(r); }); });
-  const classGpa = avgGpa(allClassRatings);
-  const classGrade = allClassRatings.length ? gpaToGrade(classGpa) : "—";
-
-  let rowsHtml = "";
+  const className=$("#classClass").value, section=$("#classSection").value, subject=$("#classSubject").value, term=$("#classTerm").value, container=$("#classReportArea");
+  if(!className||!section){container.innerHTML='<div class="card"><div class="empty"><div class="glyph">&#128202;</div><p>Choose a class and section to see the report.</p></div></div>';return;}
+  const classStudents=store.students.filter(function(s){return s.section===section&&s.className===className;});
+  if(!classStudents.length){container.innerHTML='<div class="card"><div class="empty"><p>No students found in Class '+esc(className)+esc(section)+'.</p></div></div>';return;}
+  let classEvals=store.evaluations.filter(function(e){const st=store.students.find(function(s){return s.id===e.studentId;});return st&&st.section===section&&st.className===className;});
+  if(subject!=="All")classEvals=classEvals.filter(function(e){return e.subject===subject;}); if(term!=="All")classEvals=classEvals.filter(function(e){return e.term===term;});
+  let classTotal=0,classObtained=0;
+  classEvals.forEach(function(ev){const t=evaluationTotals(ev);classTotal+=t.total;classObtained+=t.obtained;});
+  const classPct=classTotal?(classObtained/classTotal*100):0;
+  let rowsHtml='';
   classStudents.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function(student){
-    let evs = store.evaluations.filter(function(e){ return e.studentId === student.id; });
-    if(subject !== "All") evs = evs.filter(function(e){ return e.subject === subject; });
-    if(term !== "All") evs = evs.filter(function(e){ return e.term === term; });
-
-    if(!evs.length){
-      rowsHtml += '<tr><td>'+esc(student.name)+'</td><td>'+esc(student.rollNumber)+'</td><td>0</td><td>—</td><td>—</td><td><span class="statuspill" style="background:var(--rule);color:var(--ink-soft);">Not evaluated</span></td></tr>';
-    }else{
-      const allR = [];
-      evs.forEach(function(ev){ Object.values(ev.scores).forEach(function(r){ allR.push(r); }); });
-      const studentGpa = avgGpa(allR);
-      const grade = gpaToGrade(studentGpa);
-      const st = statusFromGpa(studentGpa);
-      rowsHtml += '<tr><td>'+esc(student.name)+'</td><td>'+esc(student.rollNumber)+'</td><td>'+evs.length+'</td><td class="mono">'+studentGpa.toFixed(2)+'</td><td>'+grade+'</td><td><span class="statuspill" style="'+pillStyle(st.cls)+'">'+st.text+'</span></td></tr>';
-    }
+    const evs=classEvals.filter(function(e){return e.studentId===student.id;}); let total=0,obtained=0;
+    evs.forEach(function(ev){const t=evaluationTotals(ev);total+=t.total;obtained+=t.obtained;});
+    if(!evs.length){rowsHtml+='<tr><td>'+esc(student.name)+'</td><td>'+esc(student.rollNumber)+'</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="statuspill" style="background:var(--rule);color:var(--ink-soft);">Not evaluated</span></td></tr>';}
+    else {const pct=total?(obtained/total*100):0;const cdc=cdcGradeFromPct(pct);const statusText=cdc.remark;rowsHtml+='<tr><td>'+esc(student.name)+'</td><td>'+esc(student.rollNumber)+'</td><td>'+evs.length+'</td><td>'+Number(obtained.toFixed(2))+' / '+Number(total.toFixed(2))+'</td><td>'+pct.toFixed(1)+'%</td><td>'+(cdc.gpa===null?'NG':cdc.gpa.toFixed(1))+'</td><td>'+cdc.grade+'</td><td><span class="statuspill" style="'+pillStyle(statusFromPct(pct).cls)+'">'+statusText+'</span></td></tr>';}
   });
-
-  let subjBreakdown = "";
-  if(subject === "All" && classEvals.length){
-    const subjectsPresent = Array.from(new Set(classEvals.map(function(e){ return e.subject; })));
-    subjBreakdown = '<h5 style="margin-top:30px; font-family:\'Fraunces\',serif; color:var(--green); border-bottom:1.5px solid var(--rule); padding-bottom:8px;">Subject-wise performance</h5>';
-    subjBreakdown += '<table class="mk-table mk-summary"><thead><tr><th>Subject</th><th style="width:80px;">GPA</th><th style="width:70px;">Grade</th></tr></thead><tbody>';
-    subjectsPresent.forEach(function(subj){
-      const subjRatings = [];
-      classEvals.filter(function(e){return e.subject===subj;}).forEach(function(ev){ Object.values(ev.scores).forEach(function(r){ subjRatings.push(r); }); });
-      const subjGpa = avgGpa(subjRatings);
-      const subjGrade = subjRatings.length ? gpaToGrade(subjGpa) : "—";
-      subjBreakdown += '<tr><td>'+esc(subj)+'</td><td class="mono">'+subjGpa.toFixed(2)+'</td><td>'+subjGrade+'</td></tr>';
-    });
-    subjBreakdown += '</tbody></table>';
-  }
-
-  const html =
-    '<div class="report">'+
-      '<div class="report-top">'+
-        '<span class="glabel">'+esc(store.settings.schoolName||"School")+'</span>'+
-        '<h2>Class-Wise Evaluation Report</h2>'+
-        '<div class="who">Class '+esc(className)+' — Section '+esc(section)+'</div>'+
-        '<div class="meta">'+(subject==="All"?"All Subjects":esc(subject))+' · '+(term==="All"?"All Terms":esc(term))+' · '+esc(store.settings.academicYear||"")+'</div>'+
-      '</div>'+
-      '<div class="report-stats" style="margin-bottom:26px;">'+
-        '<div class="rstat"><div class="n">'+classStudents.length+'</div><div class="l">Students</div></div>'+
-        '<div class="rstat"><div class="n">'+classEvals.length+'</div><div class="l">Evaluations</div></div>'+
-        '<div class="rstat"><div class="n">'+classGpa.toFixed(2)+'</div><div class="l">Class GPA</div></div>'+
-        '<div class="rstat"><div class="n">'+classGrade+'</div><div class="l">Class grade</div></div>'+
-      '</div>'+
-      '<div class="scroll-x"><table class="ctable"><thead><tr><th>Student</th><th>Roll</th><th>Subjects</th><th>GPA</th><th>Grade</th><th>Status</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
-      subjBreakdown+
-      buildSignatureBlock()+
-      '<div class="report-actions no-print">'+
-        '<button class="btn btn-primary" id="printClassReportBtn">Print report</button>'+
-        '<button class="btn btn-ghost" id="downloadClassReportBtn">Download as PDF</button>'+
-      '</div>'+
-    '</div>';
-  container.innerHTML = html;
+  const classCdc=cdcGradeFromPct(classPct);
+  const html='<div class="report"><div class="report-top"><span class="glabel">'+esc(store.settings.schoolName||"School")+'</span><h2>Class-Wise Marks Evaluation Report</h2><div class="who">Class '+esc(className)+' — Section '+esc(section)+'</div><div class="meta">'+(subject==="All"?"All Subjects":esc(subject))+' · '+(term==="All"?"All Terms":esc(term))+' · '+esc(store.settings.academicYear||"")+'</div></div>'+
+    '<div class="report-stats" style="margin-bottom:26px;"><div class="rstat"><div class="n">'+classStudents.length+'</div><div class="l">Students</div></div><div class="rstat"><div class="n">'+classEvals.length+'</div><div class="l">Evaluations</div></div><div class="rstat"><div class="n">'+Number(classObtained.toFixed(2))+' / '+Number(classTotal.toFixed(2))+'</div><div class="l">Class Obtained / Total</div></div><div class="rstat"><div class="n">'+classPct.toFixed(1)+'%</div><div class="l">Class Percentage</div></div><div class="rstat"><div class="n">'+(classCdc.gpa===null?'NG':classCdc.gpa.toFixed(1))+'</div><div class="l">Class GPA (CDC)</div></div><div class="rstat"><div class="n">'+classCdc.grade+'</div><div class="l">Class Grade (CDC)</div></div></div>'+
+    '<div class="scroll-x"><table class="ctable"><thead><tr><th>Student</th><th>Roll</th><th>Evaluations</th><th>Obtained / Total</th><th>Percentage</th><th>GPA</th><th>Grade</th><th>Performance</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+buildSignatureBlock()+'<div class="report-actions no-print"><button class="btn btn-primary" id="printClassReportBtn">Print report</button><button class="btn btn-ghost" id="downloadClassReportBtn">Download as PDF</button></div></div>';
+  container.innerHTML=html;
 }
 function wireClassReportActions(){
   $("#classReportArea").addEventListener("click", function(e){
